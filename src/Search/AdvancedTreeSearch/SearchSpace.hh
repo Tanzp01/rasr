@@ -111,6 +111,9 @@ public:
 
     // fills the labelDistance array, has to be run after buildDepths (as they are used for topological sorting)
     void buildLabelDistances();
+    bool readLabelDistances();
+    bool writeLabelDistances();
+    u32 getChecksum();
 
     // Creates fast look-up structures like singleOutputs_, quickOutputBatches_ and secondOrderEdgeTargetBatches_.
     void buildBatches();
@@ -118,6 +121,7 @@ public:
 private:
     Core::Ref<const Am::AcousticModel> acousticModel_;
     Bliss::LexiconRef                  lexicon_;
+    Core::DependencySet                dependencies_;
 };
 
 

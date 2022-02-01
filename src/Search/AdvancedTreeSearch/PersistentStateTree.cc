@@ -536,4 +536,9 @@ void PersistentStateTree::dumpDotGraph(std::string file, const std::vector<int>&
 
     os << "}" << std::endl;
 }
+
+Core::DependencySet PersistentStateTree::getDependencies() {
+    return dependencies_;
+}
+
 }  // namespace Search

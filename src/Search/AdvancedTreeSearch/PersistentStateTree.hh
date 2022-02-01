@@ -120,6 +120,7 @@ public:
     // The network structure (inner states and transitions between states and exits)
     Search::HMMStateNetwork structure;
 
+    Core::DependencySet getDependencies();
 private:
     std::string archiveEntry() const;
 

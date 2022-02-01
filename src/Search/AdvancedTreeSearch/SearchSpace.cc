@@ -355,6 +355,11 @@ const Core::ParameterFloat paramMaximumWordEndsAfterPruning(
         "maximum absolute number of word end hypotheses after pruning allowed during auto-correcting-search (better: use maximum-acoustic-pruning-saturation and acoustic-pruning-limit instead)",
         Core::Type<Score>::max);
 
+const Core::ParameterString paramCacheArchive(
+        "cache-archive",
+        "cache archive in which all static images are cached",
+        "global-cache");
+
 namespace {
 template<class From, class To>
 void truncate(const std::vector<From>& source, std::vector<To>& to) {
@@ -378,6 +383,7 @@ StaticSearchAutomaton::StaticSearchAutomaton(Core::Configuration config, Core::R
           prefixFilter(nullptr),
           acousticModel_(acousticModel),
           lexicon_(lexicon) {
+    dependencies_.add("network", network.getDependencies());
 }
 
 StaticSearchAutomaton::~StaticSearchAutomaton() {
@@ -549,8 +555,49 @@ int StaticSearchAutomaton::findStateDepth(Search::StateId state) {
     }
 }
 
+u32 StaticSearchAutomaton::getChecksum() {
+  return dependencies_.getChecksum() + network.getChecksum();
+}
+
+bool StaticSearchAutomaton::readLabelDistances() {
+    Core::MappedArchiveReader reader  = Core::Application::us()->getCacheArchiveReader(paramCacheArchive(config), "automaton-LabelDistance"); 
+    if (!reader.good()){
+        log()<<"can not read toposort from global-cache";
+        return false;
+    }
+    u32 checksum=0;
+    reader >> checksum;
+
+    if(checksum!=getChecksum()) {
+        log()<<"LabelDistance is not the newest version, rebuilding...";
+        return false;
+    }
+
+    log()<<"reading toposort from global-cache";
+
+    size_t size;
+    reader>>size;
+    reader >> labelDistance;
+
+    return true;
+}
+
+bool StaticSearchAutomaton::writeLabelDistances() {
+    Core::MappedArchiveWriter writer = Core::Application::us()->getCacheArchiveWriter(paramCacheArchive(config), "automaton-LabelDistance");
+    if (!writer.good())
+        return false;
+    u32 checksum = this->getChecksum();
+    writer << checksum;
+    writer << labelDistance.size();
+    writer << labelDistance;
+    return true;
+}
+
 void StaticSearchAutomaton::buildLabelDistances() {
     labelDistance.resize(network.structure.stateCount(), Core::Type<unsigned>::max);
+
+    if(readLabelDistances())
+        return;
 
     std::vector<StateId> toposort(network.structure.stateCount());
     std::iota(toposort.begin(), toposort.end(), 0u);
@@ -574,6 +621,7 @@ void StaticSearchAutomaton::buildLabelDistances() {
             }
         }
     }
+    writeLabelDistances();
 }
 
 void StaticSearchAutomaton::buildBatches() {
